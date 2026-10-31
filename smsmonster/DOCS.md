@@ -19,6 +19,36 @@ Turns one or more SIM800C USB modems plugged into your Home Assistant host into 
 | `log_level` | `info` | Log verbosity. |
 | `hangup_calls` | `true` | Reject incoming calls after logging them. |
 | `delivery_reports` | `false` | Request SMS delivery reports (status becomes `delivered`). |
+| `ha_integration` | `true` | Create sensors in Home Assistant for modems and messages and fire `smsmonster_*` events (see below). |
+
+## Entities and events
+
+The add-on talks to the Home Assistant API itself, nothing to configure. It keeps these sensors up to date
+(re-pushed every minute, so they come back after a Home Assistant restart):
+
+| Entity | State | Attributes |
+|---|---|---|
+| `sensor.sms_monster_modem_<imei>` | `ready`, `connecting`, `disconnected`, `sim_pin_required`, … | operator, registration, signal, IMEI/ICCID/IMSI, model, firmware, name, phone_number, last_error, counters |
+| `sensor.sms_monster_modem_<imei>_signal` | signal strength in % | rssi, signal_dbm |
+| `sensor.sms_monster_modems` | number of modems | `ready` count, list of modems |
+| `sensor.sms_monster_received` / `_sent` / `_failed` / `_queued` | message counters | |
+| `sensor.sms_monster_last_received` / `_last_sent` / `_last_failed` / `_last_call` | timestamp of the latest one | id, number, text, modem_id, status, error |
+
+Every message also fires an event carrying the full message as `trigger.event.data`: `smsmonster_message_received`,
+`smsmonster_message_sent`, `smsmonster_message_failed`, `smsmonster_call_received`, and `smsmonster_modem_removed`.
+
+```yaml
+automation:
+  - alias: Forward SMS to phone
+    trigger:
+      - platform: event
+        event_type: smsmonster_message_received
+    action:
+      - service: notify.mobile_app_phone
+        data:
+          title: "SMS from {{ trigger.event.data.number }}"
+          message: "{{ trigger.event.data.text }}"
+```
 
 ## Using it from Home Assistant
 
@@ -35,7 +65,8 @@ rest_command:
     payload: '{"to": "{{ to }}", "text": "{{ text }}"}'
 ```
 
-Receive SMS by adding a webhook in the add-on UI pointing at a Home Assistant webhook trigger
+Receiving SMS needs no webhook: use the `smsmonster_message_received` event above. A webhook still works if you prefer it:
+add one in the add-on UI pointing at a Home Assistant webhook trigger
 (`http://homeassistant.local:8123/api/webhook/<your-id>`) for the `message.received` event.
 The payload is `{"event": "message.received", "data": {"number": "...", "text": "...", ...}}`,
 so an automation can use `{{ trigger.json.data.number }}` and `{{ trigger.json.data.text }}`.
