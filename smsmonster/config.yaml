@@ -1,5 +1,5 @@
 name: SMS Monster
-version: "0.1.0"
+version: "0.2.0"
 slug: smsmonster
 image: git.hauptstadt.monster/manzari/{arch}-smsmonster
 description: SMS gateway for SIM800C USB modems (send/receive SMS, webhooks, REST API)
